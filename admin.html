@@ -35,7 +35,7 @@ input,textarea,select{width:100%;padding:11px;margin:6px 0;border-radius:10px;bo
 .btn{padding:11px 16px;border-radius:20px;border:none;font-weight:900;cursor:pointer}
 .btn-add{background:linear-gradient(90deg,red,#ff6600);color:#fff;width:100%;margin-top:8px}
 .btn-del{background:#3a0000;color:#ff7777;border:1px solid #6a0000;padding:6px 12px;font-size:11px;border-radius:20px}
-.item{display:flex;justify-content:space-between;align-items:center;background:#1f0000;border:1px solid #3a0000;padding:10px 12px;border-radius:12px;margin:6px 0}
+.item{display:flex;justify-content:space-between;align-items:center;background:#1f0000;border:1px solid #3a0000;padding:10px 12px;border-radius:12px;margin:6px 0}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.stat{background:#190000;border:1px solid #4a0000;border-radius:12px;padding:12px;text-align:center}.checkrow{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}.checkrow label{background:#190000;border:1px solid #4a0000;padding:8px 10px;border-radius:12px}.filter{margin-top:15px}
 </style></head><body>
 
 <!-- LOGIN RESTRINGIDO - NO SE VE CONTRASEÑA EN LA BARRA -->
@@ -73,104 +73,36 @@ input,textarea,select{width:100%;padding:11px;margin:6px 0;border-radius:10px;bo
 
 <label>NOMBRE DEL GRUPO O CANAL</label><input id="nombre" placeholder="Ej: 🔥 Putitas CDMX 🔥">
 <label>DESCRIPCIÓN / BIOGRAFÍA</label><textarea id="desc" rows="4" placeholder="De que trata..."></textarea>
-<label>LINK DE ACCESO (t.me/...)</label><input id="link" placeholder="https://t.me/...">
+<label>LINK DE ACCESO (t.me/...)</label><input id="link" placeholder="https://t.me/..."><label>ETIQUETA</label><select id="etiqueta"><option value="">Sin etiqueta</option><option>DESTACADO</option><option>PREMIUM</option><option>NUEVO</option><option>18+</option></select><label>TAGS (separados por coma)</label><input id="tags" placeholder="viral, mexico, premium"><label>LINK PARA REPORTES (opcional)</label><input id="reporte" placeholder="https://t.me/..."><div class="checkrow"><label>📌 <input type="checkbox" id="destacado"> Destacar</label><label>🟢 <input type="checkbox" id="activo" checked> Activo</label><label>🆕 <input type="checkbox" id="nuevo"> Marcar nuevo</label></div>
 
 <button id="btnG" class="btn btn-add" onclick="guardar()">🔥 PUBLICAR 🔥</button>
 <button id="btnC" class="btn" style="background:#222;color:silver;display:none;width:100%;margin-top:8px" onclick="cancelar()">CANCELAR</button>
 
 <div style="margin-top:20px">
-<h3 style="color:#ff0000;font-size:14px">📋 Chats agregados (<span id="count">0</span>)</h3>
-<div id="lista"></div>
+<h3 style="color:#ff0000;font-size:14px">📊 Estadísticas</h3><div class="stats"><div class="stat">📋<br><b id="totalChats">0</b><br><small>Publicaciones</small></div><div class="stat">👁️<br><b id="totalViews">0</b><br><small>Visitas</small></div><div class="stat">🟢<br><b id="activeChats">0</b><br><small>Activos</small></div><div class="stat">📌<br><b id="featuredChats">0</b><br><small>Destacados</small></div></div><h3 style="color:#ff0000;font-size:14px">📋 Chats agregados (<span id="count">0</span>)</h3><input class="filter" id="filtroAdmin" placeholder="🔎 Buscar por nombre o categoría..." oninput="listar()"><div id="lista"></div>
 <a href="index.html" style="display:block;text-align:center;color:silver;margin-top:15px;font-size:12px">← Ver Mini App</a>
 </div>
 </div>
 
 <script>
-const CLAVE = "sexomania2024";
-let editId=null;
-let cache=[];
-
-function check(){
-  let p=document.getElementById('pass').value;
-  if(p===CLAVE){
-    sessionStorage.setItem('sexo_admin','ok');
-    document.getElementById('login').style.display='none';
-    document.getElementById('panel').style.display='block';
-    iniciar();
-  } else {
-    document.getElementById('error').style.display='block';
-    document.getElementById('pass').value='';
-    setTimeout(()=>document.getElementById('error').style.display='none',2000);
-  }
-}
-window.logout=()=>{ sessionStorage.removeItem('sexo_admin'); location.reload(); }
-if(sessionStorage.getItem('sexo_admin')==='ok'){
-  document.getElementById('login').style.display='none';
-  document.getElementById('panel').style.display='block';
-  setTimeout(iniciar,400);
-}
-document.getElementById('pass').addEventListener('keypress',e=>{if(e.key==='Enter')check()});
-
-function cargarGaleria(i){
-  let f=i.files[0]; if(!f) return;
-  let r=new FileReader();
-  r.onload=e=>{ document.getElementById('foto').value=e.target.result; preview(e.target.result); };
-  r.readAsDataURL(f);
-}
-window.preview=(u)=>{ let img=document.getElementById('prev'); if(u.length>10){ img.src=u; img.style.display='block'; img.onerror=()=>img.style.display='none'; } }
-
-function iniciar(){
-  onSnap(col(db,"chats"), snap=>{
-    cache=[];
-    snap.forEach(d=> cache.push({id:d.id,...d.data()}));
-    listar();
-  });
-}
-
-function listar(){
-  document.getElementById('count').innerText=cache.length;
-  if(cache.length===0){ document.getElementById('lista').innerHTML='<p style="color:#555;font-size:11px">Aún no hay chats</p>'; return; }
-  document.getElementById('lista').innerHTML=cache.map(c=>`<div class="item">
-    <img src="${c.foto}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid red">
-    <div style="flex:1;margin-left:10px;text-align:left"><b style="font-size:12px;color:#ff6a6a">${c.nombre}</b><br><span style="font-size:10px;color:silver">${c.seccion}</span></div>
-    <div style="display:flex;gap:5px">
-      <button class="btn-del" style="background:#222" onclick="editar('${c.id}')">✏️</button>
-      <button class="btn-del" style="background:red;color:#fff" onclick="borrar('${c.id}')">🗑️</button>
-    </div>
-  </div>`).join('');
-}
-
-window.guardar=async()=>{
-  let datos={
-    seccion:document.getElementById('seccion').value,
-    foto:document.getElementById('foto').value.trim(),
-    nombre:document.getElementById('nombre').value.trim(),
-    desc:document.getElementById('desc').value.trim(),
-    link:document.getElementById('link').value.trim(),
-    fecha: stamp()
-  };
-  if(!datos.foto||!datos.nombre||!datos.link){ alert('Falta foto, nombre y link'); return; }
-  try{
-    if(editId){ await upd(docu(db,"chats",editId), datos); }
-    else { await add(col(db,"chats"), datos); }
-    limpiar();
-  }catch(e){ alert('Error: '+e.message); }
-}
-window.editar=(id)=>{
-  let c=cache.find(x=>x.id===id); if(!c) return;
-  editId=id;
-  document.getElementById('seccion').value=c.seccion;
-  document.getElementById('foto').value=c.foto; preview(c.foto);
-  document.getElementById('nombre').value=c.nombre;
-  document.getElementById('desc').value=c.desc;
-  document.getElementById('link').value=c.link;
-  document.getElementById('btnG').innerText='💾 GUARDAR CAMBIOS';
-  document.getElementById('btnC').style.display='block';
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-window.borrar=async(id)=>{ if(!confirm('¿Borrar este chat?'))return; await del(docu(db,"chats",id)); }
-window.cancelar=()=>{ limpiar(); }
-function limpiar(){ editId=null; ['foto','nombre','desc','link'].forEach(id=>document.getElementById(id).value=''); document.getElementById('prev').style.display='none'; document.getElementById('btnG').innerText='🔥 PUBLICAR 🔥'; document.getElementById('btnC').style.display='none'; }
-</script>
+const CLAVE="sexomania2024";let editId=null,cache=[];
+function check(){let p=document.getElementById("pass").value;if(p===CLAVE){sessionStorage.setItem("sexo_admin","ok");document.getElementById("login").style.display="none";document.getElementById("panel").style.display="block";iniciar();}else{document.getElementById("error").style.display="block";document.getElementById("pass").value="";setTimeout(()=>document.getElementById("error").style.display="none",2000);}}
+window.logout=()=>{sessionStorage.removeItem("sexo_admin");location.reload()};
+if(sessionStorage.getItem("sexo_admin")==="ok"){document.getElementById("login").style.display="none";document.getElementById("panel").style.display="block";setTimeout(iniciar,400);}
+document.getElementById("pass").addEventListener("keypress",e=>{if(e.key==="Enter")check()});
+function cargarGaleria(i){let f=i.files[0];if(!f)return;let r=new FileReader();r.onload=e=>{document.getElementById("foto").value=e.target.result;preview(e.target.result)};r.readAsDataURL(f);}
+window.preview=u=>{let img=document.getElementById("prev");if(u.length>10){img.src=u;img.style.display="block";img.onerror=()=>img.style.display="none";}};
+function iniciar(){onSnap(col(db,"chats"),snap=>{cache=[];snap.forEach(d=>cache.push({id:d.id,...d.data()}));listar();estadisticas();});}
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+function listar(){let q=(document.getElementById("filtroAdmin")?.value||"").toLowerCase();let arr=cache.filter(c=>String(c.nombre||"").toLowerCase().includes(q)||String(c.seccion||"").toLowerCase().includes(q));document.getElementById("count").innerText=cache.length;if(!arr.length){document.getElementById("lista").innerHTML='<p style="color:#555;font-size:11px">No hay coincidencias</p>';return;}document.getElementById("lista").innerHTML=arr.map(c=>'<div class="item"><img src="'+esc(c.foto||"")+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid red"><div style="flex:1;margin-left:10px;text-align:left"><b style="font-size:12px;color:#ff6a6a">'+esc(c.nombre)+'</b><br><span style="font-size:10px;color:silver">'+esc(c.seccion)+' • 👁️ '+(c.clicks||0)+(c.destacado?" • 📌":"")+(c.activo===false?" • 🔴 OCULTO":"")+'</span></div><div style="display:flex;gap:5px"><button class="btn-del" style="background:#222" onclick="editar(\''+c.id+'\')">✏️</button><button class="btn-del" style="background:#111" onclick="alternarEstado(\''+c.id+'\')">'+(c.activo===false?"🟢":"🔴")+'</button><button class="btn-del" style="background:#552b00" onclick="destacar(\''+c.id+'\')">📌</button><button class="btn-del" style="background:red;color:#fff" onclick="borrar(\''+c.id+'\')">🗑️</button></div></div>').join("");}
+function estadisticas(){document.getElementById("totalChats").innerText=cache.length;document.getElementById("totalViews").innerText=cache.reduce((n,c)=>n+Number(c.clicks||0),0);document.getElementById("activeChats").innerText=cache.filter(c=>c.activo!==false).length;document.getElementById("featuredChats").innerText=cache.filter(c=>c.destacado===true).length;}
+window.guardar=async()=>{let datos={seccion:document.getElementById("seccion").value,foto:document.getElementById("foto").value.trim(),nombre:document.getElementById("nombre").value.trim(),desc:document.getElementById("desc").value.trim(),link:document.getElementById("link").value.trim(),etiqueta:document.getElementById("etiqueta").value,tags:document.getElementById("tags").value.split(",").map(x=>x.trim()).filter(Boolean),reporte:document.getElementById("reporte").value.trim(),destacado:document.getElementById("destacado").checked,activo:document.getElementById("activo").checked,nuevo:document.getElementById("nuevo").checked,fecha:stamp()};if(!datos.foto||!datos.nombre||!datos.link){alert("Falta foto, nombre y link");return;}try{if(editId)await upd(docu(db,"chats",editId),datos);else{datos.clicks=0;await add(col(db,"chats"),datos);}limpiar();}catch(e){alert("Error: "+e.message);}};
+window.editar=id=>{let c=cache.find(x=>x.id===id);if(!c)return;editId=id;document.getElementById("seccion").value=c.seccion;document.getElementById("foto").value=c.foto||"";preview(c.foto||"");document.getElementById("nombre").value=c.nombre||"";document.getElementById("desc").value=c.desc||"";document.getElementById("link").value=c.link||"";document.getElementById("etiqueta").value=c.etiqueta||"";document.getElementById("tags").value=Array.isArray(c.tags)?c.tags.join(", "):"";document.getElementById("reporte").value=c.reporte||"";document.getElementById("destacado").checked=c.destacado===true;document.getElementById("activo").checked=c.activo!==false;document.getElementById("nuevo").checked=c.nuevo===true;document.getElementById("btnG").innerText="💾 GUARDAR CAMBIOS";document.getElementById("btnC").style.display="block";window.scrollTo({top:0,behavior:"smooth"});};
+window.alternarEstado=async id=>{let c=cache.find(x=>x.id===id);if(c)await upd(docu(db,"chats",id),{activo:c.activo===false});};
+window.destacar=async id=>{let c=cache.find(x=>x.id===id);if(c)await upd(docu(db,"chats",id),{destacado:c.destacado!==true});};
+window.borrar=async id=>{if(!confirm("¿Borrar este chat?"))return;await del(docu(db,"chats",id));};
+window.cancelar=()=>limpiar();
+function limpiar(){editId=null;["foto","nombre","desc","link","tags","reporte"].forEach(id=>document.getElementById(id).value="");document.getElementById("etiqueta").value="";document.getElementById("destacado").checked=false;document.getElementById("activo").checked=true;document.getElementById("nuevo").checked=false;document.getElementById("prev").style.display="none";document.getElementById("btnG").innerText="🔥 PUBLICAR 🔥";document.getElementById("btnC").style.display="none";}
+</script></script>
 </body>
 </html>
