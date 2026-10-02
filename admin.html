@@ -89,7 +89,7 @@ input,textarea,select{width:100%;padding:11px;margin:6px 0;border-radius:10px;bo
 
 <script>
 const CLAVE="sexomania2024";let editId=null,cache=[];
-function check(){let p=document.getElementById("pass").value;if(p===CLAVE){sessionStorage.setItem("sexo_admin","ok");document.getElementById("login").style.display="none";document.getElementById("panel").style.display="block";iniciar();}else{document.getElementById("error").style.display="block";document.getElementById("pass").value="";setTimeout(()=>document.getElementById("error").style.display="none",2000);}}
+window.check=function(){let p=document.getElementById("pass").value;if(p===CLAVE){sessionStorage.setItem("sexo_admin","ok");document.getElementById("login").style.display="none";document.getElementById("panel").style.display="block";iniciar();}else{document.getElementById("error").style.display="block";document.getElementById("pass").value="";setTimeout(()=>document.getElementById("error").style.display="none",2000);}}
 window.logout=()=>{sessionStorage.removeItem("sexo_admin");location.reload()};
 if(sessionStorage.getItem("sexo_admin")==="ok"){document.getElementById("login").style.display="none";document.getElementById("panel").style.display="block";setTimeout(iniciar,400);}
 document.getElementById("pass").addEventListener("keypress",e=>{if(e.key==="Enter")check()});
@@ -118,6 +118,6 @@ window.destacar=async id=>{let c=cache.find(x=>x.id===id);if(c)await upd(docu(db
 window.borrar=async id=>{if(!confirm("¿Borrar este chat?"))return;await del(docu(db,"chats",id));};
 window.cancelar=()=>limpiar();
 function limpiar(){editId=null;["foto","nombre","desc","link","tags","reporte"].forEach(id=>document.getElementById(id).value="");document.getElementById("etiqueta").value="";document.getElementById("destacado").checked=false;document.getElementById("activo").checked=true;document.getElementById("nuevo").checked=false;document.getElementById("prev").style.display="none";document.getElementById("btnG").innerText="🔥 PUBLICAR 🔥";document.getElementById("btnC").style.display="none";}
-</script></script>
+</script>
 </body>
 </html>
