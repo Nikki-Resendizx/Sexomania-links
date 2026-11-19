@@ -15,7 +15,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-window.db=db; window.col=collection; window.onSnapshot=onSnapshot; window.docu=doc; window.upDoc=updateDoc; window.incr=increment;
+window.db=db; window.col=collection; window.onSnapshot=onSnapshot; window.docu=doc; window.upDoc=updateDoc; window.incr=increment; window.runTx=runTransaction;
 </script>
 <style>
 *{box-sizing:border-box}
@@ -203,7 +203,7 @@ window.calificar=async estrellas=>{
   const id=modalId,ref=docu(db,"chats",id),key=voterId();
   document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=true);
   try{
-    await runTransaction(db,async tx=>{
+    await window.runTx(db,async tx=>{
       const snap=await tx.get(ref);if(!snap.exists())throw new Error("La publicación ya no existe");
       const data=snap.data(),votes=data.ratingVotes||{},previous=Number(votes[key]||0);
       const count=Number(data.ratingCount||0)+(previous?0:1);
