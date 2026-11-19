@@ -3,7 +3,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, doc, updateDoc, increment, runTransaction } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyC6eyDXaTCPgcb_se9vVP4rfwVkdc0ayn0",
   authDomain: "sexomania-links.firebaseapp.com",
@@ -79,6 +79,13 @@ body{margin:0;background:radial-gradient(ellipse at top,#2a0000 0%,#0f0000 40%,#
   text-align:center;
   margin-bottom:16px;
 }
+#fRating{margin:14px 0;padding:13px;background:rgba(255,0,0,.07);border:1px solid rgba(255,80,80,.35);border-radius:14px;text-align:center}
+.rating-title{font-size:12px;font-weight:900;color:#ffd0d0;margin-bottom:9px;letter-spacing:1px}
+.rating-buttons{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+.rating-btn{flex:1;min-width:42px;max-width:62px;padding:10px 4px;border-radius:12px;border:1px solid #7a2929;background:#260000;color:#ffd36a;font-weight:900;font-size:15px;cursor:pointer}
+.rating-btn.selected{background:linear-gradient(145deg,#ffb52e,#ff6500);border-color:#ffe09a;color:#210900;box-shadow:0 0 13px #ff990099}
+.rating-btn:disabled{opacity:.55;cursor:wait}
+.rating-summary{font-size:11px;color:#ffb4b4;margin-top:9px}
 #fDesc{
   font-size:12.5px;
   line-height:1.55;
@@ -146,6 +153,7 @@ body{margin:0;background:radial-gradient(ellipse at top,#2a0000 0%,#0f0000 40%,#
 <div id="fNombre"></div>
 <div id="fCategoria"></div>
 <div id="fStats"></div>
+<div id="fRating"><div class="rating-title">⭐ CALIFICA ESTA COMUNIDAD</div><div class="rating-buttons"><button class="rating-btn" onclick="calificar(1)">1⭐</button><button class="rating-btn" onclick="calificar(2)">2⭐</button><button class="rating-btn" onclick="calificar(3)">3⭐</button><button class="rating-btn" onclick="calificar(4)">4⭐</button><button class="rating-btn" onclick="calificar(5)">5⭐</button></div><div id="ratingSummary" class="rating-summary">Aún no hay calificaciones</div></div>
 <div id="fDesc"></div>
 <a id="fLink" class="btn-unete" target="_blank">⚡ UNETE AQUI ⚡</a><button id="fShare" onclick="compartir(modalId)" style="margin-top:12px;width:100%;background:#310000;color:#fff;border:1px solid #ff7777;padding:13px;border-radius:24px;font-weight:900">↗ COMPARTIR PUBLICACIÓN</button><button onclick="reportar()" style="margin-top:10px;background:#170000;color:#ff9999;border:1px solid #5a0000;padding:9px 18px;border-radius:20px">🚩 REPORTAR</button>
 <button onclick="cerrar()" style="margin-top:14px;background:#1a0000;color:#ff7777;border:1px solid #6a0000;padding:10px 20px;border-radius:20px">Cerrar</button>
@@ -177,12 +185,51 @@ function render(){
 window.toggleFav=id=>{let f=favoritos();f=f.includes(id)?f.filter(x=>x!==id):f.concat(id);localStorage.setItem(favKey,JSON.stringify(f));render();};
 window.compartirCategoria=async(slug,label)=>{const url="https://t.me/SexomaniaLinkbot?startapp=cat_"+encodeURIComponent(slug);try{if(navigator.share){await navigator.share({title:"SEXOMANIA · "+label,text:"Abre esta categoría de SEXOMANIA",url});}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);alert("✅ Enlace de categoría copiado");}else{prompt("Copia el enlace de la categoría:",url);}}catch(e){if(e.name!=="AbortError")alert("No se pudo compartir la categoría.");}};
 window.compartir=async id=>{const chat=todos.find(x=>x.id===id);if(!chat)return;const url="https://t.me/SexomaniaLinkbot?startapp=c_"+encodeURIComponent(String(id));try{if(navigator.share){await navigator.share({title:chat.nombre||"SEXOMANIA",text:"Mira esta publicación de SEXOMANIA",url});}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);alert("✅ Enlace individual copiado");}else{prompt("Copia el enlace individual:",url);}}catch(e){if(e.name!=="AbortError")alert("No se pudo compartir el enlace.");}};
+function voterId(){
+  const telegramId=window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  if(telegramId)return "tg_"+String(telegramId);
+  let id=localStorage.getItem("sexomania_rating_visitor");
+  if(!id){id="web_"+(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());localStorage.setItem("sexomania_rating_visitor",id);}
+  return id;
+}
+function pintarCalificacion(c){
+  const votes=c.ratingVotes||{},mine=Number(votes[voterId()]||0);
+  const count=Number(c.ratingCount||0),total=Number(c.ratingTotal||0),avg=count?total/count:0;
+  document.querySelectorAll(".rating-btn").forEach((b,i)=>{b.classList.toggle("selected",i+1===mine);b.setAttribute("aria-pressed",String(i+1===mine));});
+  document.getElementById("ratingSummary").textContent=count?("Promedio: "+avg.toFixed(1)+" ⭐ · "+count+" "+(count===1?"voto":"votos")+(mine?" · Tu voto: "+mine+"⭐":"")):"Aún no hay calificaciones";
+}
+window.calificar=async estrellas=>{
+  if(!modalId||![1,2,3,4,5].includes(Number(estrellas)))return;
+  const id=modalId,ref=docu(db,"chats",id),key=voterId();
+  document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=true);
+  try{
+    await runTransaction(db,async tx=>{
+      const snap=await tx.get(ref);if(!snap.exists())throw new Error("La publicación ya no existe");
+      const data=snap.data(),votes=data.ratingVotes||{},previous=Number(votes[key]||0);
+      const count=Number(data.ratingCount||0)+(previous?0:1);
+      const total=Number(data.ratingTotal||0)-previous+Number(estrellas);
+      tx.update(ref,{ratingVotes:{...votes,[key]:Number(estrellas)},ratingCount:count,ratingTotal:total});
+    });
+    const actual=todos.find(x=>x.id===id);
+    if(actual){
+      const votes={...(actual.ratingVotes||{})},previous=Number(votes[key]||0);
+      votes[key]=Number(estrellas);
+      actual.ratingVotes=votes;
+      actual.ratingCount=Number(actual.ratingCount||0)+(previous?0:1);
+      actual.ratingTotal=Number(actual.ratingTotal||0)-previous+Number(estrellas);
+      pintarCalificacion(actual);
+    }
+    document.getElementById("ratingSummary").textContent="¡Gracias por tu calificación!";
+  }catch(e){alert("No se pudo guardar tu calificación: "+e.message);}
+  finally{document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=false);}
+};
 window.ver=async id=>{
   let c=todos.find(x=>x.id===id); if(!c||!esActivo(c))return; modalId=id;
   document.getElementById("fFoto").src=c.foto; document.getElementById("fNombre").innerText=c.nombre;
   document.getElementById("fCategoria").innerText="☛ "+c.seccion+" ☚";
   document.getElementById("fStats").innerText="𓁻 "+(c.clicks||0)+" VISTAS"+(c.destacado?" • 📌 DESTACADO":"");
   document.getElementById("fDesc").innerText=c.desc||"Sin descripción";
+  pintarCalificacion(c);
   let l=document.getElementById("fLink"); l.href=c.link;
   l.onclick=async()=>{try{await upDoc(docu(db,"chats",id),{clicks:incr(1)})}catch(e){}};
   document.getElementById("modal").style.display="block";
@@ -197,6 +244,6 @@ onSnapshot(col(db,"chats"),snap=>{
   const categoryMatch=String(startParam).match(/^cat_([a-z0-9_]{1,40})$/);
   if(sharedMatch&&!sharedPostOpened){sharedPostOpened=true;window.Telegram?.WebApp?.ready?.();window.ver(sharedMatch[1]);}
   else if(categoryMatch&&!sharedPostOpened){sharedPostOpened=true;const categoryMap={canales_adultos:"CANALES ADULTOS",grupos_adultos:"GRUPOS ADULTOS",ventas_mas18:"VENTAS +18",publicitarios:"PUBLICITARIOS",entretenimiento:"ENTRETENIMIENTO",arte:"ARTE",venta_articulos:"VENTA ARTICULOS",bots:"BOTS"};const target=categoryMap[categoryMatch[1]];if(target){window.Telegram?.WebApp?.ready?.();window.openSec(target);}}
-  if(modalId){let actual=todos.find(x=>x.id===modalId);if(actual)document.getElementById("fStats").innerText="𓁻 "+(actual.clicks||0)+" VISTAS"+(actual.destacado?" • 📌 DESTACADO":"");}
+  if(modalId){let actual=todos.find(x=>x.id===modalId);if(actual){document.getElementById("fStats").innerText="𓁻 "+(actual.clicks||0)+" VISTAS"+(actual.destacado?" • 📌 DESTACADO":"");pintarCalificacion(actual);}}
 });
 </script></body></html>
