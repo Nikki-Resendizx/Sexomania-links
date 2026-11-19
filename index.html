@@ -196,33 +196,41 @@ function voterId(){
 function pintarCalificacion(c){
   const votes=c.ratingVotes||{},mine=Number(votes[voterId()]||0);
   const count=Number(c.ratingCount||0),total=Number(c.ratingTotal||0),avg=count?total/count:0;
-  document.querySelectorAll(".rating-btn").forEach((b,i)=>{b.classList.toggle("selected",i+1===mine);b.setAttribute("aria-pressed",String(i+1===mine));});
-  document.getElementById("ratingSummary").textContent=count?("Promedio: "+avg.toFixed(1)+" ⭐ · "+count+" "+(count===1?"voto":"votos")+(mine?" · Tu voto: "+mine+"⭐":"")):"Aún no hay calificaciones";
+  document.querySelectorAll(".rating-btn").forEach((b,i)=>{b.classList.toggle("selected",i+1===mine);b.setAttribute("aria-pressed",String(i+1===mine));b.disabled=Boolean(mine);});
+  document.getElementById("ratingSummary").textContent=count?("Promedio: "+avg.toFixed(1)+" ⭐ · "+count+" "+(count===1?"voto":"votos")+(mine?" · Ya votaste: "+mine+"⭐ · Voto bloqueado":"")):"Aún no hay calificaciones";
 }
 window.calificar=async estrellas=>{
   if(!modalId||![1,2,3,4,5].includes(Number(estrellas)))return;
   const id=modalId,ref=docu(db,"chats",id),key=voterId();
   document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=true);
   try{
-    await window.runTx(db,async tx=>{
+    const outcome=await window.runTx(db,async tx=>{
       const snap=await tx.get(ref);if(!snap.exists())throw new Error("La publicación ya no existe");
       const data=snap.data(),votes=data.ratingVotes||{},previous=Number(votes[key]||0);
-      const count=Number(data.ratingCount||0)+(previous?0:1);
-      const total=Number(data.ratingTotal||0)-previous+Number(estrellas);
+      // Un voto por usuario y publicación: si ya existe, no se modifica.
+      if(previous)return {alreadyVoted:true,data};
+      const count=Number(data.ratingCount||0)+1;
+      const total=Number(data.ratingTotal||0)+Number(estrellas);
       tx.update(ref,{ratingVotes:{...votes,[key]:Number(estrellas)},ratingCount:count,ratingTotal:total});
+      return {alreadyVoted:false};
     });
     const actual=todos.find(x=>x.id===id);
+    if(outcome.alreadyVoted){
+      if(actual){Object.assign(actual,outcome.data);pintarCalificacion(actual);}
+      document.getElementById("ratingSummary").textContent="Ya registraste tu voto. No se puede cambiar ni volver a votar.";
+      return;
+    }
     if(actual){
-      const votes={...(actual.ratingVotes||{})},previous=Number(votes[key]||0);
+      const votes={...(actual.ratingVotes||{})};
       votes[key]=Number(estrellas);
       actual.ratingVotes=votes;
-      actual.ratingCount=Number(actual.ratingCount||0)+(previous?0:1);
-      actual.ratingTotal=Number(actual.ratingTotal||0)-previous+Number(estrellas);
+      actual.ratingCount=Number(actual.ratingCount||0)+1;
+      actual.ratingTotal=Number(actual.ratingTotal||0)+Number(estrellas);
       pintarCalificacion(actual);
     }
-    document.getElementById("ratingSummary").textContent="¡Gracias por tu calificación!";
+    document.getElementById("ratingSummary").textContent="¡Voto registrado y bloqueado! Gracias por calificar.";
   }catch(e){alert("No se pudo guardar tu calificación: "+e.message);}
-  finally{document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=false);}
+  finally{const actual=todos.find(x=>x.id===id);if(modalId===id&&actual)pintarCalificacion(actual);else if(modalId!==id)document.querySelectorAll(".rating-btn").forEach(b=>b.disabled=false);}
 };
 window.ver=async id=>{
   let c=todos.find(x=>x.id===id); if(!c||!esActivo(c))return; modalId=id;
