@@ -173,7 +173,7 @@ function render(){
   d.innerHTML=db.length?db.map(c=>{const f=favoritos().includes(c.id),b=etiqueta(c)||((esNuevo(c))?"NUEVO":"");return '<div class="item-lista"><button class="item-main" onclick="ver(\''+c.id+'\')"><span>❥ '+esc(c.nombre)+' '+(c.clicks?'• '+c.clicks+'𓁻':'')+(b?'<span class="badge">'+esc(b)+'</span>':'')+'<small>'+esc(c.seccion)+'</small></span></button><button class="item-share" onclick="compartir(\''+c.id+'\')">↗</button><button class="fav" style="border:0;border-radius:0" onclick="toggleFav(\''+c.id+'\')">'+(f?"⭐":"☆")+'</button></div>';}).join(""):'<p style="color:#ff5555">Aún no hay canales aquí</p>';
 }
 window.toggleFav=id=>{let f=favoritos();f=f.includes(id)?f.filter(x=>x!==id):f.concat(id);localStorage.setItem(favKey,JSON.stringify(f));render();};
-window.compartir=async id=>{const chat=todos.find(x=>x.id===id);if(!chat)return;const url="https://t.me/Sexomanialinkbot?start=c_"+encodeURIComponent(String(id));try{if(navigator.share){await navigator.share({title:chat.nombre||"SEXOMANIA",text:"Mira esta publicación de SEXOMANIA",url});}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);alert("✅ Enlace individual copiado");}else{prompt("Copia el enlace individual:",url);}}catch(e){if(e.name!=="AbortError")alert("No se pudo compartir el enlace.");}};
+window.compartir=async id=>{const chat=todos.find(x=>x.id===id);if(!chat)return;const url="https://t.me/SexomaniaLinkbot?startapp=c_"+encodeURIComponent(String(id));try{if(navigator.share){await navigator.share({title:chat.nombre||"SEXOMANIA",text:"Mira esta publicación de SEXOMANIA",url});}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);alert("✅ Enlace individual copiado");}else{prompt("Copia el enlace individual:",url);}}catch(e){if(e.name!=="AbortError")alert("No se pudo compartir el enlace.");}};
 window.ver=async id=>{
   let c=todos.find(x=>x.id===id); if(!c||!esActivo(c))return; modalId=id;
   document.getElementById("fFoto").src=c.foto; document.getElementById("fNombre").innerText=c.nombre;
@@ -186,8 +186,12 @@ window.ver=async id=>{
 };
 window.cerrar=()=>{document.getElementById("modal").style.display="none";modalId=null;};
 window.reportar=()=>{let c=todos.find(x=>x.id===modalId);if(c&&c.reporte)window.open(c.reporte,"_blank");else alert("El enlace de reporte no está configurado.");};
+let sharedPostOpened=false;
 onSnapshot(col(db,"chats"),snap=>{
   todos=[];snap.forEach(d=>todos.push({id:d.id,...d.data()}));if(sec)render();
+  const startParam=window.Telegram?.WebApp?.initDataUnsafe?.start_param||"";
+  const sharedMatch=String(startParam).match(/^c_([A-Za-z0-9_-]{1,60})$/);
+  if(sharedMatch&&!sharedPostOpened){sharedPostOpened=true;window.Telegram?.WebApp?.ready?.();window.ver(sharedMatch[1]);}
   if(modalId){let actual=todos.find(x=>x.id===modalId);if(actual)document.getElementById("fStats").innerText="𓁻 "+(actual.clicks||0)+" VISTAS"+(actual.destacado?" • 📌 DESTACADO":"");}
 });
 </script></body></html>
